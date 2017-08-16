@@ -8,6 +8,10 @@ and dataframe (pandas) querying.
 
 ## Usage
 
+```
+from simpcass import CassandraClient
+```
+
 Simple queries:
 ```
 with CassandraClient('127.0.0.1', 9042) as client:
