@@ -3,6 +3,9 @@ A simple client class for access a Cassandra database, controlling
 the disposal of connections and exposing useful methods for batch
 and dataframe (pandas) querying.
 
+## Installation
+`pip install simpcass`
+
 ## Usage
 
 Simple queries:
