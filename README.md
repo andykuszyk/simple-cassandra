@@ -1,5 +1,5 @@
 # simpcass
-A simple client class for access a Cassandra database, controlling
+A simple client class for accessing a Cassandra database, controlling
 the disposal of connections and exposing useful methods for batch
 and dataframe (pandas) querying.
 
