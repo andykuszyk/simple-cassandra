@@ -48,7 +48,7 @@ class CassandraClient:
                     print('WARN: Error encountered connecting to Cassandra on attempt {}: {}'.format(i, e))
                     continue
 
-    def execute(self, cql, args=None):
+    def execute(self, cql, fetchsize=1000, args=None):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
         :param cql: The CQL to be executed, which can contain %s placeholders.
@@ -56,24 +56,25 @@ class CassandraClient:
         :return:
         """
         session = self._try_get_session()
+        statement = SimpleStatement(cql, fetch_size=fetchsize)
         if args is None:
-            rows = session.execute(cql)
+            rows = session.execute(statement)
         else:
-            rows = session.execute(cql, args)
+            rows = session.execute(statement, args)
         session.shutdown()
         return rows
 
-    def _execute_batch(self, session, statements, args, sub_batches):
+    def _execute_batch(self, session, statements, args, sub_batches, fetchsize):
         sub_batch_size = math.ceil(len(statements) / sub_batches)
         for sub_batch in range(0, sub_batches):
             batch = BatchStatement()
             start_index = min(sub_batch * sub_batch_size, len(statements))
             end_index = min((sub_batch + 1) * sub_batch_size, len(statements))
             for i in range(start_index, end_index):
-                batch.add(SimpleStatement(statements[i]), args[i])
+                batch.add(SimpleStatement(statements[i], fetch_size=fetchsize), args[i])
             session.execute(batch)
 
-    def execute_batch(self, statements, args):
+    def execute_batch(self, statements, args, fetchsize=1000):
         """
         Executes a batch of CQL statements or, if this fails, attempts to break
         the batch down into smaller chunks.
@@ -85,7 +86,7 @@ class CassandraClient:
         try:
             for sub_batches in range(1, len(statements) + 1):
                 try:
-                    self._execute_batch(session, statements, args, sub_batches)
+                    self._execute_batch(session, statements, args, sub_batches, fetchsize)
                     return
                 except InvalidRequest:
                     if len(statements) == sub_batches:
@@ -99,7 +100,7 @@ class CassandraClient:
         finally:
             session.shutdown()
 
-    def execute_df(self, cql, args=None):
+    def execute_df(self, cql, args=None, fetchsize=1000):
         """
         Executes the cql and returns the resulting rows as a dataframe, expanding maps as additional columns.
         Useful if map<> fields are being selected that need to be columns in the resultant dataframe.
@@ -108,10 +109,11 @@ class CassandraClient:
         :return:
         """
         session = self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect()
+        statement = SimpleStatement(cql, fetch_size=fetchsize)
         if args is None:
-            result_set = session.execute(cql)
+            result_set = session.execute(statement)
         else:
-            result_set = session.execute(cql, args)
+            result_set = session.execute(statement, args)
 
         results = []
         column_names = set(result_set.column_names)
