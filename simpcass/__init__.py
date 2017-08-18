@@ -48,7 +48,7 @@ class CassandraClient:
                     print('WARN: Error encountered connecting to Cassandra on attempt {}: {}'.format(i, e))
                     continue
 
-    def execute(self, cql, fetchsize=1000, args=None):
+    def execute(self, cql, args=None):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
         :param cql: The CQL to be executed, which can contain %s placeholders.
@@ -56,7 +56,7 @@ class CassandraClient:
         :return:
         """
         session = self._try_get_session()
-        statement = SimpleStatement(cql, fetch_size=fetchsize)
+        statement = SimpleStatement(cql)
         if args is None:
             rows = session.execute(statement)
         else:
@@ -64,17 +64,17 @@ class CassandraClient:
         session.shutdown()
         return rows
 
-    def _execute_batch(self, session, statements, args, sub_batches, fetchsize):
+    def _execute_batch(self, session, statements, args, sub_batches):
         sub_batch_size = math.ceil(len(statements) / sub_batches)
         for sub_batch in range(0, sub_batches):
             batch = BatchStatement()
             start_index = min(sub_batch * sub_batch_size, len(statements))
             end_index = min((sub_batch + 1) * sub_batch_size, len(statements))
             for i in range(start_index, end_index):
-                batch.add(SimpleStatement(statements[i], fetch_size=fetchsize), args[i])
+                batch.add(SimpleStatement(statements[i]), args[i])
             session.execute(batch)
 
-    def execute_batch(self, statements, args, fetchsize=1000):
+    def execute_batch(self, statements, args):
         """
         Executes a batch of CQL statements or, if this fails, attempts to break
         the batch down into smaller chunks.
@@ -86,7 +86,7 @@ class CassandraClient:
         try:
             for sub_batches in range(1, len(statements) + 1):
                 try:
-                    self._execute_batch(session, statements, args, sub_batches, fetchsize)
+                    self._execute_batch(session, statements, args, sub_batches)
                     return
                 except InvalidRequest:
                     if len(statements) == sub_batches:
