@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name='simpcass',
     packages=['simpcass'],
-    version='0.0.3',
+    version='0.0.4',
     description='A simple client for Apache Cassandra',
     author='Andy Kuszyk',
     author_email='pairofsocks@hotmail.co.uk',
