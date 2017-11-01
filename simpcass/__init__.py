@@ -58,9 +58,9 @@ class CassandraClient:
         session = self._try_get_session()
         statement = SimpleStatement(cql)
         if args is None:
-            rows = session.execute(statement, timeout)
+            rows = session.execute(statement, timeout=timeout)
         else:
-            rows = session.execute(statement, args, timeout)
+            rows = session.execute(statement, args, timeout=timeout)
         session.shutdown()
         return rows
 
