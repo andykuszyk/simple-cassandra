@@ -48,7 +48,7 @@ class CassandraClient:
                     print('WARN: Error encountered connecting to Cassandra on attempt {}: {}'.format(i, e))
                     continue
 
-    def execute(self, cql, args=None):
+    def execute(self, cql, args=None, timeout=None):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
         :param cql: The CQL to be executed, which can contain %s placeholders.
@@ -58,9 +58,9 @@ class CassandraClient:
         session = self._try_get_session()
         statement = SimpleStatement(cql)
         if args is None:
-            rows = session.execute(statement)
+            rows = session.execute(statement, timeout=timeout)
         else:
-            rows = session.execute(statement, args)
+            rows = session.execute(statement, args, timeout=timeout)
         session.shutdown()
         return rows
 
