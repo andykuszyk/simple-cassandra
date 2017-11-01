@@ -28,7 +28,7 @@ class CassandraClient:
     """
 
     def __init__(self, server, port, keyspace=None):
-        self._cluster = Cluster([server], port=port)
+        self._cluster = Cluster(server if type(server) is list else [server], port=port)
         self._keyspace = keyspace
 
     def __enter__(self):
@@ -48,23 +48,24 @@ class CassandraClient:
                     print('WARN: Error encountered connecting to Cassandra on attempt {}: {}'.format(i, e))
                     continue
 
-    def execute(self, cql, args=None, timeout=None):
+    def execute(self, cql, args=None, **kwargs):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
         :param cql: The CQL to be executed, which can contain %s placeholders.
         :param args: An optional tuple of parameters.
+        :param kwargs: Any additional named parameters to pass to `session.execute()` in the Cassandra driver.
         :return:
         """
         session = self._try_get_session()
         statement = SimpleStatement(cql)
         if args is None:
-            rows = session.execute(statement, timeout=timeout)
+            rows = session.execute(statement, **kwargs)
         else:
-            rows = session.execute(statement, args, timeout=timeout)
+            rows = session.execute(statement, args, **kwargs)
         session.shutdown()
         return rows
 
-    def _execute_batch(self, session, statements, args, sub_batches):
+    def _execute_batch(self, session, statements, args, sub_batches, kwargs):
         sub_batch_size = math.ceil(len(statements) / sub_batches)
         for sub_batch in range(0, sub_batches):
             batch = BatchStatement()
@@ -72,21 +73,22 @@ class CassandraClient:
             end_index = min((sub_batch + 1) * sub_batch_size, len(statements))
             for i in range(start_index, end_index):
                 batch.add(SimpleStatement(statements[i]), args[i])
-            session.execute(batch)
+            session.execute(batch, **kwargs)
 
-    def execute_batch(self, statements, args):
+    def execute_batch(self, statements, args, **kwargs):
         """
         Executes a batch of CQL statements or, if this fails, attempts to break
         the batch down into smaller chunks.
         :param statements: A sequence of CQL strings to execute, which can contain %s placeholders.
         :param args: A sequence of parameter tuples, of the same length as `statements`.
+        :param kwargs: Any additional named parameters to pass to `session.execute()` in the Cassandra driver.
         :return:
         """
         session = self._try_get_session()
         try:
             for sub_batches in range(1, len(statements) + 1):
                 try:
-                    self._execute_batch(session, statements, args, sub_batches)
+                    self._execute_batch(session, statements, args, sub_batches, kwargs)
                     return
                 except InvalidRequest:
                     if len(statements) == sub_batches:
@@ -100,20 +102,21 @@ class CassandraClient:
         finally:
             session.shutdown()
 
-    def execute_df(self, cql, args=None, fetchsize=1000):
+    def execute_df(self, cql, args=None, fetchsize=1000, **kwargs):
         """
         Executes the cql and returns the resulting rows as a dataframe, expanding maps as additional columns.
         Useful if map<> fields are being selected that need to be columns in the resultant dataframe.
         :param cql:
         :param args:
+        :param kwargs: Any additional named parameters to pass to `session.execute()` in the Cassandra driver.
         :return:
         """
         session = self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect()
         statement = SimpleStatement(cql, fetch_size=fetchsize)
         if args is None:
-            result_set = session.execute(statement)
+            result_set = session.execute(statement, **kwargs)
         else:
-            result_set = session.execute(statement, args)
+            result_set = session.execute(statement, args, **kwargs)
 
         results = []
         column_names = set(result_set.column_names)
