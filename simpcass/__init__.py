@@ -27,7 +27,15 @@ class CassandraClient:
     >       )
     """
 
-    def __init__(self, server, port, keyspace=None):
+    def __init__(self, server, port, keyspace=None, retries=None):
+        """
+        Instantiates a new client. Disposable, so should be instantiated in a `with` block.
+        :param server: The server or servers to connect to. Can be a string or list.
+        :param port: The port to connect to.
+        :param keyspace: Optionally a keyspace to connect to. If not provided, then this should be specified in queries.
+        :param retries: Optionally the number of re-tries to attempt before throwing an exception.
+        """
+        self._retries = retries
         self._cluster = Cluster(server if type(server) is list else [server], port=port)
         self._keyspace = keyspace
 
@@ -37,16 +45,22 @@ class CassandraClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._cluster.shutdown()
 
-    def _try_get_session(self):
-        for i in range(0,10):
+
+    def _retry(self, function, retries=None):
+        retries = self._retries if retries is None else retries
+        if retries is None:
+            return function()
+
+        for i in range(0, retries):
             try:
-                return self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect()
+                return function()
             except Exception as e:
-                if i >= 9:
+                if i == (retries - 1):
                     raise
-                else:
-                    print('WARN: Error encountered connecting to Cassandra on attempt {}: {}'.format(i, e))
-                    continue
+                print('WARN: An exception occured, retrying ({})'.format(e))
+
+    def _try_get_session(self):
+        self._retry(lambda: self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect(), 10)
 
     def execute(self, cql, args=None, **kwargs):
         """
@@ -59,9 +73,9 @@ class CassandraClient:
         session = self._try_get_session()
         statement = SimpleStatement(cql)
         if args is None:
-            rows = session.execute(statement, **kwargs)
+            rows = self._retry(lambda: session.execute(statement, **kwargs))
         else:
-            rows = session.execute(statement, args, **kwargs)
+            rows = self._retry(lambda: session.execute(statement, args, **kwargs))
         session.shutdown()
         return rows
 
@@ -73,7 +87,7 @@ class CassandraClient:
             end_index = min((sub_batch + 1) * sub_batch_size, len(statements))
             for i in range(start_index, end_index):
                 batch.add(SimpleStatement(statements[i]), args[i])
-            session.execute(batch, **kwargs)
+            self._retry(lambda: session.execute(batch, **kwargs))
 
     def execute_batch(self, statements, args, **kwargs):
         """
@@ -114,9 +128,9 @@ class CassandraClient:
         session = self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect()
         statement = SimpleStatement(cql, fetch_size=fetchsize)
         if args is None:
-            result_set = session.execute(statement, **kwargs)
+            result_set = self._retry(lambda: session.execute(statement, **kwargs))
         else:
-            result_set = session.execute(statement, args, **kwargs)
+            result_set = self._retry(lambda: session.execute(statement, args, **kwargs))
 
         results = []
         column_names = set(result_set.column_names)
