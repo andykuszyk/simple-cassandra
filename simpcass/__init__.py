@@ -1,4 +1,5 @@
 import math
+from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement, SimpleStatement
 from cassandra import InvalidRequest
@@ -27,7 +28,8 @@ class CassandraClient:
     >       )
     """
 
-    def __init__(self, server, port, keyspace=None, retries=None):
+
+    def __init__(self, server, port, keyspace=None, retries=None, username=None, password=None):
         """
         Instantiates a new client. Disposable, so should be instantiated in a `with` block.
         :param server: The server or servers to connect to. Can be a string or list.
@@ -36,7 +38,11 @@ class CassandraClient:
         :param retries: Optionally the number of re-tries to attempt before throwing an exception.
         """
         self._retries = retries
-        self._cluster = Cluster(server if type(server) is list else [server], port=port)
+        if username is not None:
+            auth_provider = PlainTextAuthProvider(username=username, password=password)
+        else:
+            auth_provider = None
+        self._cluster = Cluster(server if type(server) is list else [server], port=port, auth_provider=auth_provider)
         self._keyspace = keyspace
 
     def __enter__(self):
@@ -65,6 +71,7 @@ class CassandraClient:
     def execute(self, cql, args=None, **kwargs):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
+        :param timeout: The timeout as a float for the CQL connection in seconds
         :param cql: The CQL to be executed, which can contain %s placeholders.
         :param args: An optional tuple of parameters.
         :param kwargs: Any additional named parameters to pass to `session.execute()` in the Cassandra driver.
