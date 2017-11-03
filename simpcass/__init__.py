@@ -29,7 +29,10 @@ class CassandraClient:
     """
 
     def __init__(self, server, port, keyspace=None, username=None, password=None):
-        auth_provider = PlainTextAuthProvider(username=username, password=password)
+        if username is not None:
+            auth_provider = PlainTextAuthProvider(username=username, password=password)
+        else:
+            auth_provider = None
         self._cluster = Cluster([server], port=port, auth_provider=auth_provider)
         self._keyspace = keyspace
 
