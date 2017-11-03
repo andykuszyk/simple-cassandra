@@ -60,7 +60,7 @@ class CassandraClient:
                 print('WARN: An exception occured, retrying ({})'.format(e))
 
     def _try_get_session(self):
-        self._retry(lambda: self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect(), 10)
+        return self._retry(lambda: self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect(), 10)
 
     def execute(self, cql, args=None, **kwargs):
         """
