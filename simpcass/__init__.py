@@ -1,4 +1,5 @@
 import math
+from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement, SimpleStatement
 from cassandra import InvalidRequest
@@ -27,8 +28,9 @@ class CassandraClient:
     >       )
     """
 
-    def __init__(self, server, port, keyspace=None):
-        self._cluster = Cluster([server], port=port)
+    def __init__(self, server, port, keyspace=None, username=None, password=None):
+        auth_provider = PlainTextAuthProvider(username=username, password=password)
+        self._cluster = Cluster([server], port=port, auth_provider=auth_provider)
         self._keyspace = keyspace
 
     def __enter__(self):
@@ -51,6 +53,7 @@ class CassandraClient:
     def execute(self, cql, args=None, timeout=None):
         """
         Executes a standard CQL statement, disposing of the relevant connections.
+        :param timeout: The timeout as a float for the CQL connection in seconds
         :param cql: The CQL to be executed, which can contain %s placeholders.
         :param args: An optional tuple of parameters.
         :return:
