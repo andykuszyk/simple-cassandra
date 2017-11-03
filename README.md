@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/andykuszyk/simpcass.svg?branch=master)](https://travis-ci.org/andykuszyk/simpcass)
+
 # simpcass
 A simple client class for accessing a Cassandra database, controlling
 the disposal of connections and exposing useful methods for batch
