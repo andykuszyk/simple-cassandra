@@ -1,4 +1,5 @@
 import math
+from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement, SimpleStatement
 from cassandra import InvalidRequest
@@ -27,7 +28,7 @@ class CassandraClient:
     >       )
     """
 
-    def __init__(self, server, port, keyspace=None, retries=None):
+    def __init__(self, server, port, keyspace=None, retries=None, username=None, password=None):
         """
         Instantiates a new client. Disposable, so should be instantiated in a `with` block.
         :param server: The server or servers to connect to. Can be a string or list.
@@ -35,8 +36,12 @@ class CassandraClient:
         :param keyspace: Optionally a keyspace to connect to. If not provided, then this should be specified in queries.
         :param retries: Optionally the number of re-tries to attempt before throwing an exception.
         """
+        if username is not None:
+            auth_provider = PlainTextAuthProvider(username=username, password=password)
+        else:
+            auth_provider = None
         self._retries = retries
-        self._cluster = Cluster(server if type(server) is list else [server], port=port)
+        self._cluster = Cluster(server if type(server) is list else [server], port=port, auth_provider=auth_provider)
         self._keyspace = keyspace
 
     def __enter__(self):
