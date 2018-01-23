@@ -50,7 +50,6 @@ class CassandraClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._cluster.shutdown()
 
-
     def _retry(self, function, retries=None):
         retries = self._retries if retries is None else retries
         if retries is None:
@@ -127,10 +126,11 @@ class CassandraClient:
         Useful if map<> fields are being selected that need to be columns in the resultant dataframe.
         :param cql:
         :param args:
+        :param fetchsize:
         :param kwargs: Any additional named parameters to pass to `session.execute()` in the Cassandra driver.
         :return:
         """
-        session = self._cluster.connect(self._keyspace) if self._keyspace else self._cluster.connect()
+        session = self._try_get_session()
         statement = SimpleStatement(cql, fetch_size=fetchsize)
         if args is None:
             result_set = self._retry(lambda: session.execute(statement, **kwargs))
@@ -154,5 +154,3 @@ class CassandraClient:
         session.shutdown()
 
         return pd.DataFrame(data=results)
-
-
